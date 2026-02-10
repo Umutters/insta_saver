@@ -99,14 +99,14 @@ class _BrowserPageState extends State<BrowserPage> {
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      topRight: Radius.circular(20),
+                      topLeft: Radius.circular(15),
+                      topRight: Radius.circular(15),
                     ),
                   ),
                   child: ClipRRect(
                     borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      topRight: Radius.circular(20),
+                      topLeft: Radius.circular(15),
+                      topRight: Radius.circular(15),
                     ),
                     child: InAppWebView(
                       initialUrlRequest: URLRequest(
@@ -114,7 +114,7 @@ class _BrowserPageState extends State<BrowserPage> {
                       ),
                       initialSettings: InAppWebViewSettings(
                         userAgent:
-                            'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+                            'Mozilla/5.0 (Linux; Android 9; SM-G960F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
                         javaScriptEnabled: true,
                         useHybridComposition: true,
                         allowsInlineMediaPlayback: true,
@@ -123,12 +123,16 @@ class _BrowserPageState extends State<BrowserPage> {
                         databaseEnabled: true,
                         allowFileAccess: true,
                         allowContentAccess: true,
+                        allowFileAccessFromFileURLs: true,
+                        allowUniversalAccessFromFileURLs: true,
+                        mixedContentMode:
+                            MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
                       ),
                       onWebViewCreated: (controller) {
                         _webViewController = controller;
 
                         // JavaScript handler ekle
-                        controller.addJavaScriptHandler(
+                        _webViewController?.addJavaScriptHandler(
                           handlerName: 'downloadPost',
                           callback: (args) {
                             if (args.isNotEmpty) {
@@ -162,15 +166,39 @@ class _BrowserPageState extends State<BrowserPage> {
                           setState(() {
                             _currentUrl = url.toString();
                           });
+                          // Immediate injection
                           await _injectDownloadButtons(controller);
+                          // Second injection after a delay (for dynamically loaded content)
+                          Future.delayed(
+                            const Duration(milliseconds: 1500),
+                            () {
+                              _injectDownloadButtons(controller);
+                            },
+                          );
                         }
                       },
                       onProgressChanged: (controller, progress) {
                         if (progress == 100) {
-                          Future.delayed(const Duration(seconds: 1), () {
+                          Future.delayed(const Duration(milliseconds: 800), () {
+                            _injectDownloadButtons(controller);
+                          });
+                          // Another attempt after page is fully loaded
+                          Future.delayed(const Duration(seconds: 2), () {
                             _injectDownloadButtons(controller);
                           });
                         }
+                      },
+                      onConsoleMessage: (controller, consoleMessage) {
+                        // Filter out Permissions-Policy warnings from Instagram
+                        final message = consoleMessage.message;
+                        if (message.contains('Permissions-Policy header') ||
+                            message.contains('Permissions policy violation')) {
+                          return; // Suppress these specific warnings
+                        }
+                        // Log ALL other console messages for debugging
+                        debugPrint(
+                          '[WebView Console ${consoleMessage.messageLevel}] ${consoleMessage.message}',
+                        );
                       },
                     ),
                   ),
@@ -186,256 +214,143 @@ class _BrowserPageState extends State<BrowserPage> {
   Future<void> _injectDownloadButtons(InAppWebViewController controller) async {
     await controller.evaluateJavascript(
       source: '''
-      (function() {
-        // Prevent multiple injections
-        if (window.instaDownloaderInjected) return;
-        window.instaDownloaderInjected = true;
-        console.log("InstaDownloader: Injected successfully");
-        
-        // Mark processed articles to avoid re-processing
-        const processedArticles = new WeakSet();
+    (function() {
+      // Çift kurulumu önle
+      if (window.instaDownloaderSetupDone) return;
+      window.instaDownloaderSetupDone = true;
+      
+      // Medyaları URL bazlı saklayacağımız global hafıza (Carousel desteği için)
+      window.mediaCache = new Map(); 
+      window.processedArticles = new WeakSet();
 
-        // Helper: Extract shortcode from URL
-        function getShortcode(url) {
-            const match = url.match(/\/p\/([a-zA-Z0-9_-]+)/) || 
-                          url.match(/\/reel\/([a-zA-Z0-9_-]+)/) ||
-                          url.match(/\/tv\/([a-zA-Z0-9_-]+)/);
-            return match ? match[1] : null;
+      function collectMedias(article, postUrl) {
+        if (!window.mediaCache.has(postUrl)) {
+          window.mediaCache.set(postUrl, []);
         }
+        let currentList = window.mediaCache.get(postUrl);
 
-        // Helper: Fetch post data from Instagram Internal API
-        async function fetchPostData(shortcode) {
-           try {
-                // Correct way to construct URL without confusing Dart/JS interpolation
-                const url = "https://www.instagram.com/p/" + shortcode + "/?__a=1&__d=dis";
-                const response = await fetch(url);
-                const json = await response.json();
-                
-                const items = json.items || (json.graphql && json.graphql.shortcode_media ? [json.graphql.shortcode_media] : []);
-                
-                if (!items || items.length === 0) return null;
-                
-                const item = items[0];
-                return item;
-           } catch (e) {
-               console.error("Fetch failed", e);
-               return null;
-           }
-        }
+        // Header (Profil alanı) dışındaki her şeye bak
+        const items = article.querySelectorAll('img, video');
+        items.forEach(item => {
+          if (item.closest('header')) return;
 
-        function parseMediaFromItem(item) {
-             const medias = [];
-             
-             if (item.carousel_media) {
-                 item.carousel_media.forEach((media, index) => {
-                     if (media.video_versions && media.video_versions.length > 0) {
-                         medias.push({
-                             type: 'video',
-                             url: media.video_versions[0].url,
-                             thumbnail: media.image_versions2.candidates[0].url,
-                             id: media.id,
-                             index: index
-                         });
-                     } else {
-                         const candidates = media.image_versions2.candidates;
-                         const best = candidates.sort((a,b) => b.width - a.width)[0];
-                         medias.push({
-                             type: 'image',
-                             url: best.url,
-                             thumbnail: best.url,
-                             id: media.id,
-                             index: index
-                         });
-                     }
-                 });
-             } else {
-                 if (item.video_versions && item.video_versions.length > 0) {
-                      medias.push({
-                             type: 'video',
-                             url: item.video_versions[0].url,
-                             thumbnail: item.image_versions2.candidates[0].url,
-                             id: item.id,
-                             index: 0
-                         });
-                 } else {
-                      const candidates = item.image_versions2.candidates;
-                      const best = candidates.sort((a,b) => b.width - a.width)[0];
-                      medias.push({
-                             type: 'image',
-                             url: best.url,
-                             thumbnail: best.url,
-                             id: item.id,
-                             index: 0
-                         });
-                 }
-             }
-             return medias;
-        }
-
-        function addStoryDownloadBtn() {
-          const existingStoryBtn = document.getElementById('story-download-btn');
-          
-          if (window.location.href.includes('/stories/')) {
-            if (existingStoryBtn) return;
-            
-            const storyBtn = document.createElement('div');
-            storyBtn.id = 'story-download-btn';
-            storyBtn.innerHTML = '⬇️ Story';
-            storyBtn.style.cssText = `
-              position: fixed;
-              top: 80px;
-              right: 20px;
-              z-index: 999999;
-              background: linear-gradient(135deg, #833AB4, #FD1D1D);
-              color: white;
-              border: none;
-              border-radius: 20px;
-              padding: 10px 16px;
-              font-size: 14px;
-              font-weight: bold;
-              cursor: pointer;
-              box-shadow: 0 4px 15px rgba(131, 58, 180, 0.6);
-            `;
-            
-            storyBtn.onclick = function() {
-              // ... existing story download logic ...
-              // For brevity, using simple scraper here or could use API if needed
-               const medias = [];
-               const videos = document.querySelectorAll('video[src]');
-               videos.forEach((video) => {
-                   if (video.src && video.src.length > 20) {
-                        medias.push({type: 'video', url: video.src, thumbnail: video.poster || video.src, index: 0});
-                   }
-               });
-               if (medias.length === 0) {
-                   const images = document.querySelectorAll('img[src*="instagram"]');
-                   images.forEach((img) => {
-                       if (img.naturalWidth > 400) {
-                            medias.push({type: 'image', url: img.src, thumbnail: img.src, index: 0});
-                       }
-                   });
-               }
-               
-               if (window.flutter_inappwebview && medias.length > 0) {
-                    window.flutter_inappwebview.callHandler('downloadPost', JSON.stringify({
-                      url: window.location.href,
-                      medias: medias
-                    }));
-               }
+          let entry = null;
+          // Video yakalama
+          if (item.tagName === 'VIDEO' && item.src && !item.src.startsWith('blob:')) {
+            entry = { 
+              type: 'video', 
+              url: item.src, 
+              thumbnail: item.getAttribute('poster') || '' 
             };
-            
-            document.body.appendChild(storyBtn);
-          } else {
-            if (existingStoryBtn) existingStoryBtn.remove();
+          } 
+          // Resim yakalama (Büyük boyutlu olanlar)
+          else if (item.tagName === 'IMG' && item.src && (item.naturalWidth > 300 || img.offsetWidth > 300)) {
+            entry = { type: 'image', url: item.src, thumbnail: item.src };
           }
-        }
-        
-        function addPostDownloadButtons() {
-          // Select articles more broadly
-          const articles = document.querySelectorAll('article, div[role="article"]');
-          console.log("Found articles: " + articles.length);
-          
-          articles.forEach((article) => {
-            if (article.querySelector('.insta-download-btn')) return;
-            
-            // DON'T mark as processed yet until we confirm it has a link
-            // if (processedArticles.has(article)) return; 
-            
-            const timeLink = article.querySelector('a[href*="/p/"], a[href*="/reel/"]');
-            if (!timeLink) return; // Not ready yet
-            
-            processedArticles.add(article); // NOW we can mark it
-            
-            const postUrl = 'https://www.instagram.com' + timeLink.getAttribute('href');
-            const shortcode = getShortcode(postUrl);
-            
-            if (!shortcode) return;
 
-            const downloadBtn = document.createElement('div');
-            downloadBtn.className = 'insta-download-btn';
-            downloadBtn.innerHTML = '⬇️';
-            
-            downloadBtn.style.cssText = `
-                position: absolute;
-                top: 10px;
-                right: 10px;
-                z-index: 9999;
-                background: rgba(0, 0, 0, 0.7);
-                color: white;
-                border: 2px solid white;
-                border-radius: 50%;
-                width: 46px;
-                height: 46px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 20px;
-                cursor: pointer;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-              `;
-
-            downloadBtn.onclick = async function(e) {
-                e.stopPropagation();
-                e.preventDefault();
-                
-                this.innerHTML = '⏳';
-                const item = await fetchPostData(shortcode);
-                
-                if (item) {
-                    const medias = parseMediaFromItem(item);
-                    if (window.flutter_inappwebview) {
-                        window.flutter_inappwebview.callHandler('downloadPost', JSON.stringify({
-                            url: postUrl,
-                            medias: medias
-                        }));
-                    }
-                    this.style.background = 'rgba(76, 175, 80, 0.9)';
-                    this.innerHTML = '✓';
-                } else {
-                    this.innerHTML = '⚠️';
-                    // Fallback to empty to trigger feedback
-                     if (window.flutter_inappwebview) {
-                        window.flutter_inappwebview.callHandler('downloadPost', JSON.stringify({url: postUrl, medias: []}));
-                    }
-                }
-                
-                setTimeout(() => {
-                    this.style.background = 'rgba(0, 0, 0, 0.7)';
-                    this.innerHTML = '⬇️';
-                }, 2000);
-            };
-            
-            // Try to find header to append to, or just relative to article
-            const header = article.querySelector('header');
-            if(header) {
-                 header.style.position = 'relative'; 
-                 header.appendChild(downloadBtn);
-            } else {
-                 article.style.position = 'relative';
-                 article.appendChild(downloadBtn);
+          if (entry) {
+            // Eğer bu URL listede yoksa ekle (Duplicate kontrolü)
+            const exists = currentList.some(m => m.url === entry.url);
+            if (!exists) {
+              currentList.push(entry);
+              console.log("Yeni içerik hafızaya eklendi: " + entry.type);
             }
-          });
-        }
-        
-        // Initial run
-        addStoryDownloadBtn();
-        addPostDownloadButtons();
-        
-        // Use MutationObserver for DOM changes
-        const observer = new MutationObserver(() => {
-          addStoryDownloadBtn();
-          addPostDownloadButtons();
+          }
         });
-        
-        observer.observe(document.body, {childList: true, subtree: true});
-        
-        // Polling interval (Safety net)
-        setInterval(() => {
-            addStoryDownloadBtn();
-            addPostDownloadButtons();
-        }, 1500); 
-        
-      })();
+
+        window.mediaCache.set(postUrl, currentList);
+        return currentList;
+      }
+
+      function addButtons() {
+        const articles = document.querySelectorAll('article');
+        articles.forEach(article => {
+          // ÖNCE: Eğer bu article içinde zaten bizim butonumuz varsa, tekrar ekleme!
+          if (article.querySelector('.insta-download-btn')) return;
+
+          const links = article.querySelectorAll('a');
+          let postUrl = "";
+          for (let link of links) {
+            const href = link.getAttribute('href');
+            if (href && (href.includes('/p/') || href.includes('/reel/'))) {
+              postUrl = "https://www.instagram.com" + href.split('?')[0];
+              break;
+            }
+          }
+
+          if (!postUrl) return;
+
+          collectMedias(article, postUrl);
+
+          // Butonu oluştururken bir "class" veriyoruz ki yukarıda kontrol edebilelim
+          const btn = document.createElement('div');
+          btn.className = 'insta-download-btn'; // Kontrol için sınıf ekledik
+          btn.innerHTML = '💾';
+          
+          // Stil aynı kalıyor...
+          btn.style.cssText = "position:absolute; right:15px; top:15px; z-index:999; background:white; border-radius:50%; width:45px; height:45px; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4); font-size:24px; border: 2px solid #FD1D1D;";
+          
+          btn.onclick = (e) => {
+            e.preventDefault(); 
+            e.stopPropagation();
+            // ... (diğer tıklama mantığı)
+          };
+          
+          article.style.position = 'relative';
+          article.appendChild(btn);
+        });
+      }
+
+          if (!postUrl) return;
+
+          // Kullanıcı kaydırdıkça medyaları sürekli hafızada biriktir
+          collectMedias(article, postUrl);
+
+          // Buton zaten eklenmişse tekrar ekleme
+          if (window.processedArticles.has(article)) return;
+          window.processedArticles.add(article);
+
+          const btn = document.createElement('div');
+          btn.innerHTML = '💾';
+          btn.style.cssText = "position:absolute; right:15px; top:15px; z-index:999; background:white; border-radius:50%; width:45px; height:45px; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4); font-size:24px; border: 2px solid #FD1D1D;";
+          
+          btn.onclick = (e) => {
+            e.preventDefault(); 
+            e.stopPropagation();
+            
+            // Butona basıldığında hafızadaki o ana kadar biriken tüm listeyi gönder
+            const finalMedias = window.mediaCache.get(postUrl) || [];
+            
+            if (window.flutter_inappwebview && finalMedias.length > 0) {
+              window.flutter_inappwebview.callHandler('downloadPost', JSON.stringify({
+                url: postUrl,
+                medias: finalMedias
+              }));
+              btn.innerHTML = '✅';
+              setTimeout(() => btn.innerHTML = '💾', 2000);
+            } else {
+              // Eğer liste boşsa o an tekrar tarama yap (Son çare)
+              const backup = collectMedias(article, postUrl);
+              if(backup.length > 0) {
+                 window.flutter_inappwebview.callHandler('downloadPost', JSON.stringify({url: postUrl, medias: backup}));
+              } else {
+                 btn.innerHTML = '❌';
+                 setTimeout(() => btn.innerHTML = '💾', 2000);
+              }
+            }
+          };
+          
+          article.style.position = 'relative';
+          article.appendChild(btn);
+        });
+      }
+
+      // 1.5 saniyede bir yeni gönderileri ve kaydırılan resimleri kontrol et
+      setInterval(addButtons, 1500);
+      const obs = new MutationObserver(addButtons);
+      obs.observe(document.body, {childList: true, subtree: true});
+      addButtons();
+    })();
     ''',
     );
   }
@@ -444,22 +359,36 @@ class _BrowserPageState extends State<BrowserPage> {
     String postUrl,
     List<Map<String, dynamic>> medias,
   ) async {
+    // 1. Güvenlik Kontrolü: Eğer medya listesi boşsa, kullanıcıya hata ver ve çık
     if (medias.isEmpty) {
-      medias = [
-        {
-          'type': 'image',
-          'url': 'https://picsum.photos/1080/1080?random=1',
-          'thumbnail': 'https://picsum.photos/300/300?random=1',
-          'selected': true,
-        },
-      ];
-    } else {
-      for (var media in medias) {
-        media['selected'] = true;
-      }
+      _showSnackBar(
+        'Medya bağlantıları alınamadı. Lütfen sayfayı yenileyip tekrar deneyin.',
+        Colors.red,
+      );
+      return;
     }
 
-    await _showMediaPreviewSheet(postUrl, medias);
+    // 2. Veri Hazırlama: Gelen listeyi manipüle edilebilir bir hale getir
+    // selected: true diyerek BottomSheet açıldığında hepsini seçili başlatıyoruz
+    final List<Map<String, dynamic>> preparedMedias = medias.map((m) {
+      return {
+        'type': m['type'] ?? 'image',
+        'url': m['url'] ?? '',
+        'thumbnail': m['thumbnail'] ?? m['url'] ?? '',
+        'selected': true, // Başlangıçta hepsi seçili gelsin
+      };
+    }).toList();
+
+    // 3. Geçersiz URL temizliği: Boş URL'leri listeden at
+    preparedMedias.removeWhere((m) => m['url'].toString().isEmpty);
+
+    if (preparedMedias.isEmpty) {
+      _showSnackBar('İndirilebilir içerik bulunamadı.', Colors.orange);
+      return;
+    }
+
+    // 4. Önizleme sayfasını aç
+    await _showMediaPreviewSheet(postUrl, preparedMedias);
   }
 
   Future<void> _showMediaPreviewSheet(
