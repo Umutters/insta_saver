@@ -29,9 +29,9 @@ class _HomePageState extends State<HomePage>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _animation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
+    _animation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      // 1.0'dan 1.05'e çok hafif bir büyüme
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     _requestPermissions();
   }
@@ -160,38 +160,54 @@ class _HomePageState extends State<HomePage>
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'InstaSaver',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ShaderMask(
+                            shaderCallback: (bounds) {
+                              return const LinearGradient(
+                                colors: [
+                                  Color(0xFF833AB4),
+                                  Color(0xFFFD1D1D),
+                                  Color(0xFFFCAF45),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds);
+                            },
+                            child: Text(
+                              'İnstaSaver',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Video & Fotoğraf İndir',
-                          style: TextStyle(color: Colors.white70, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ],
+                          Text(
+                            'Made by Umutters',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
-              // Main Content
-              Expanded(
-                child: Container(
+                // Main Content
+                Container(
                   margin: const EdgeInsets.only(top: 20),
                   decoration: const BoxDecoration(
                     color: Colors.white,
@@ -226,11 +242,11 @@ class _HomePageState extends State<HomePage>
 
                         // Instructions
                         const Text(
-                          'Instagram bağlantısını yapıştırın',
+                          'enter url to download content in here',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                            color: Colors.grey,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -246,7 +262,7 @@ class _HomePageState extends State<HomePage>
                           scale: _animation,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Colors.grey[100],
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(15),
                               border: Border.all(color: Colors.grey[300]!),
                             ),
@@ -268,13 +284,11 @@ class _HomePageState extends State<HomePage>
                             ),
                           ),
                         ),
-
-                        const SizedBox(height: 20),
-
+                        SizedBox(height: 30),
                         // Download Button
                         SizedBox(
                           width: double.infinity,
-                          height: 56,
+                          height: 48,
                           child: ElevatedButton(
                             onPressed: _isLoading ? null : _downloadMedia,
                             style: ElevatedButton.styleFrom(
@@ -322,38 +336,12 @@ class _HomePageState extends State<HomePage>
                                   ),
                           ),
                         ),
-
-                        const Spacer(),
-
-                        // Info Card
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.blue[50],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.info_outline, color: Colors.blue[700]),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Not: API key eklemek için instagram_service.dart dosyasını düzenleyin',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.blue[900],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

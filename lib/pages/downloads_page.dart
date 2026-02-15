@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:insta_downloader/full_screen_media_page.dart';
 import 'package:path_provider/path_provider.dart';
 
 class DownloadsPage extends StatefulWidget {
@@ -290,7 +291,16 @@ class _DownloadsPageState extends State<DownloadsPage> {
                                     },
                                   ),
                                   onTap: () {
-                                    // Dosyayı açma/görüntüleme işlemi eklenebilir
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            FullScreenMediaPage(
+                                              filePath: file.path,
+                                              isVideo: !isImage,
+                                            ),
+                                      ),
+                                    );
                                   },
                                 ),
                               );

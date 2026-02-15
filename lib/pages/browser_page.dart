@@ -4,6 +4,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:insta_downloader/services/instagram_service.dart';
+import 'package:insta_downloader/js_script.dart';
 
 class BrowserPage extends StatefulWidget {
   const BrowserPage({super.key});
@@ -18,6 +19,11 @@ class _BrowserPageState extends State<BrowserPage> {
   bool _isLoading = false;
   double _downloadProgress = 0.0;
   final InstagramService _instagramService = InstagramService();
+  @override
+  void dispose() {
+    _webViewController = null;
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -109,25 +115,15 @@ class _BrowserPageState extends State<BrowserPage> {
                       topRight: Radius.circular(15),
                     ),
                     child: InAppWebView(
+                      onContentSizeChanged:
+                          (webViewController, oldContentSize, newContentSize) {
+                            // Sayfa içeriği değiştiğinde butonları tekrar enjekte et
+                            _injectDownloadButtons(webViewController);
+                          },
                       initialUrlRequest: URLRequest(
                         url: WebUri("https://www.instagram.com/"),
                       ),
-                      initialSettings: InAppWebViewSettings(
-                        userAgent:
-                            'Mozilla/5.0 (Linux; Android 9; SM-G960F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
-                        javaScriptEnabled: true,
-                        useHybridComposition: true,
-                        allowsInlineMediaPlayback: true,
-                        mediaPlaybackRequiresUserGesture: false,
-                        domStorageEnabled: true, // Critical for login/auth
-                        databaseEnabled: true,
-                        allowFileAccess: true,
-                        allowContentAccess: true,
-                        allowFileAccessFromFileURLs: true,
-                        allowUniversalAccessFromFileURLs: true,
-                        mixedContentMode:
-                            MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
-                      ),
+                      initialSettings: settings,
                       onWebViewCreated: (controller) {
                         _webViewController = controller;
 
@@ -212,147 +208,12 @@ class _BrowserPageState extends State<BrowserPage> {
   }
 
   Future<void> _injectDownloadButtons(InAppWebViewController controller) async {
-    await controller.evaluateJavascript(
-      source: '''
-    (function() {
-      // Çift kurulumu önle
-      if (window.instaDownloaderSetupDone) return;
-      window.instaDownloaderSetupDone = true;
-      
-      // Medyaları URL bazlı saklayacağımız global hafıza (Carousel desteği için)
-      window.mediaCache = new Map(); 
-      window.processedArticles = new WeakSet();
-
-      function collectMedias(article, postUrl) {
-        if (!window.mediaCache.has(postUrl)) {
-          window.mediaCache.set(postUrl, []);
-        }
-        let currentList = window.mediaCache.get(postUrl);
-
-        // Header (Profil alanı) dışındaki her şeye bak
-        const items = article.querySelectorAll('img, video');
-        items.forEach(item => {
-          if (item.closest('header')) return;
-
-          let entry = null;
-          // Video yakalama
-          if (item.tagName === 'VIDEO' && item.src && !item.src.startsWith('blob:')) {
-            entry = { 
-              type: 'video', 
-              url: item.src, 
-              thumbnail: item.getAttribute('poster') || '' 
-            };
-          } 
-          // Resim yakalama (Büyük boyutlu olanlar)
-          else if (item.tagName === 'IMG' && item.src && (item.naturalWidth > 300 || img.offsetWidth > 300)) {
-            entry = { type: 'image', url: item.src, thumbnail: item.src };
-          }
-
-          if (entry) {
-            // Eğer bu URL listede yoksa ekle (Duplicate kontrolü)
-            const exists = currentList.some(m => m.url === entry.url);
-            if (!exists) {
-              currentList.push(entry);
-              console.log("Yeni içerik hafızaya eklendi: " + entry.type);
-            }
-          }
-        });
-
-        window.mediaCache.set(postUrl, currentList);
-        return currentList;
-      }
-
-      function addButtons() {
-        const articles = document.querySelectorAll('article');
-        articles.forEach(article => {
-          // ÖNCE: Eğer bu article içinde zaten bizim butonumuz varsa, tekrar ekleme!
-          if (article.querySelector('.insta-download-btn')) return;
-
-          const links = article.querySelectorAll('a');
-          let postUrl = "";
-          for (let link of links) {
-            const href = link.getAttribute('href');
-            if (href && (href.includes('/p/') || href.includes('/reel/'))) {
-              postUrl = "https://www.instagram.com" + href.split('?')[0];
-              break;
-            }
-          }
-
-          if (!postUrl) return;
-
-          collectMedias(article, postUrl);
-
-          // Butonu oluştururken bir "class" veriyoruz ki yukarıda kontrol edebilelim
-          const btn = document.createElement('div');
-          btn.className = 'insta-download-btn'; // Kontrol için sınıf ekledik
-          btn.innerHTML = '💾';
-          
-          // Stil aynı kalıyor...
-          btn.style.cssText = "position:absolute; right:15px; top:15px; z-index:999; background:white; border-radius:50%; width:45px; height:45px; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4); font-size:24px; border: 2px solid #FD1D1D;";
-          
-          btn.onclick = (e) => {
-            e.preventDefault(); 
-            e.stopPropagation();
-            // ... (diğer tıklama mantığı)
-          };
-          
-          article.style.position = 'relative';
-          article.appendChild(btn);
-        });
-      }
-
-          if (!postUrl) return;
-
-          // Kullanıcı kaydırdıkça medyaları sürekli hafızada biriktir
-          collectMedias(article, postUrl);
-
-          // Buton zaten eklenmişse tekrar ekleme
-          if (window.processedArticles.has(article)) return;
-          window.processedArticles.add(article);
-
-          const btn = document.createElement('div');
-          btn.innerHTML = '💾';
-          btn.style.cssText = "position:absolute; right:15px; top:15px; z-index:999; background:white; border-radius:50%; width:45px; height:45px; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4); font-size:24px; border: 2px solid #FD1D1D;";
-          
-          btn.onclick = (e) => {
-            e.preventDefault(); 
-            e.stopPropagation();
-            
-            // Butona basıldığında hafızadaki o ana kadar biriken tüm listeyi gönder
-            const finalMedias = window.mediaCache.get(postUrl) || [];
-            
-            if (window.flutter_inappwebview && finalMedias.length > 0) {
-              window.flutter_inappwebview.callHandler('downloadPost', JSON.stringify({
-                url: postUrl,
-                medias: finalMedias
-              }));
-              btn.innerHTML = '✅';
-              setTimeout(() => btn.innerHTML = '💾', 2000);
-            } else {
-              // Eğer liste boşsa o an tekrar tarama yap (Son çare)
-              const backup = collectMedias(article, postUrl);
-              if(backup.length > 0) {
-                 window.flutter_inappwebview.callHandler('downloadPost', JSON.stringify({url: postUrl, medias: backup}));
-              } else {
-                 btn.innerHTML = '❌';
-                 setTimeout(() => btn.innerHTML = '💾', 2000);
-              }
-            }
-          };
-          
-          article.style.position = 'relative';
-          article.appendChild(btn);
-        });
-      }
-
-      // 1.5 saniyede bir yeni gönderileri ve kaydırılan resimleri kontrol et
-      setInterval(addButtons, 1500);
-      const obs = new MutationObserver(addButtons);
-      obs.observe(document.body, {childList: true, subtree: true});
-      addButtons();
-    })();
-    ''',
-    );
+    if (_webViewController == null) return;
+    try {
+      await controller.evaluateJavascript(source: script);
+    } catch (e) {
+      debugPrint("JS Injection Hatası: $e");
+    }
   }
 
   Future<void> _downloadFromUrl(
@@ -680,8 +541,9 @@ class _MediaPreviewSheetState extends State<_MediaPreviewSheet> {
                                   height: double.infinity,
                                   loadingBuilder:
                                       (context, child, loadingProgress) {
-                                        if (loadingProgress == null)
+                                        if (loadingProgress == null) {
                                           return child;
+                                        }
                                         return Center(
                                           child: CircularProgressIndicator(
                                             value:
@@ -902,3 +764,19 @@ class _MediaPreviewSheetState extends State<_MediaPreviewSheet> {
     );
   }
 }
+
+InAppWebViewSettings? settings = InAppWebViewSettings(
+  javaScriptEnabled: true,
+  useHybridComposition: true,
+  allowsInlineMediaPlayback: true,
+  mediaPlaybackRequiresUserGesture: false,
+  domStorageEnabled: true, // Critical for login/auth
+  databaseEnabled: true,
+  allowFileAccess: true,
+  allowContentAccess: true,
+  allowFileAccessFromFileURLs: true,
+  allowUniversalAccessFromFileURLs: true,
+  mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
+  safeBrowsingEnabled: false,
+  hardwareAcceleration: true,
+);
