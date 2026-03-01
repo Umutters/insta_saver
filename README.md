@@ -37,7 +37,9 @@ flutter run
 
 ## Ekran Görüntüsü
 
-![WhatsApp Image 2026-03-02 at 01 14 35](https://github.com/user-attachments/assets/a0db8956-1ef3-4472-9c05-05482183e22e)
+![WhatsApp Image 2026-03-02 at 01 14 35](https://github.com/user-attachments/assets/a0db8956-1ef3-4472-9c05-05482183e22e)![WhatsApp Image 2026-03-02 at 01 14 35 (1)](https://github.com/user-attachments/assets/d1aa030a-e36f-418b-964c-a7d46ed29fa5)![WhatsApp Image 2026-03-02 at 01 14 35 (2)](https://github.com/user-attachments/assets/484991b7-d55c-4af6-b630-45355419b6c5)
+
+
 
 
 ## Kullanım
