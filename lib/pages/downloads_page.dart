@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:insta_downloader/full_screen_media_page.dart';
+import 'package:insta_downloader/widgets/header.dart';
 import 'package:path_provider/path_provider.dart';
 
 class DownloadsPage extends StatefulWidget {
@@ -88,229 +89,198 @@ class _DownloadsPageState extends State<DownloadsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFFCAF45)],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 8),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'İndirilenler',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          'Kaydedilen medyalar',
-                          style: TextStyle(color: Colors.white70, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Align(
+              alignment: Alignment.centerLeft,
+              child: AppHeader(
+                title: 'İndirilenler',
+                subtitle: 'Kaydedilen medyalar',
               ),
+            ),
 
-              // Content
-              Expanded(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(30),
-                      topRight: Radius.circular(30),
-                    ),
+            // Content
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(30),
+                    topRight: Radius.circular(30),
                   ),
-                  child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _downloadedFiles.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.folder_open,
-                                size: 80,
-                                color: Colors.grey[400],
+                ),
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _downloadedFiles.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.folder_open,
+                              size: 80,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Henüz indirilen dosya yok',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey[600],
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Henüz indirilen dosya yok',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: _loadDownloadedFiles,
-                          child: ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _downloadedFiles.length,
-                            itemBuilder: (context, index) {
-                              final file = _downloadedFiles[index];
-                              final isImage =
-                                  file.path.endsWith('.jpg') ||
-                                  file.path.endsWith('.png');
+                            ),
+                          ],
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _loadDownloadedFiles,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _downloadedFiles.length,
+                          itemBuilder: (context, index) {
+                            final file = _downloadedFiles[index];
+                            final isImage =
+                                file.path.endsWith('.jpg') ||
+                                file.path.endsWith('.png');
 
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                elevation: 2,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.all(12),
-                                  leading: Container(
-                                    width: 60,
-                                    height: 60,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      color: Colors.grey[200],
-                                    ),
-                                    child: isImage
-                                        ? ClipRRect(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                            child: Image.file(
-                                              File(file.path),
-                                              fit: BoxFit.cover,
-                                            ),
-                                          )
-                                        : Icon(
-                                            Icons.videocam,
-                                            size: 32,
-                                            color: Colors.grey[600],
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.all(12),
+                                leading: Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    color: Colors.grey[200],
+                                  ),
+                                  child: isImage
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
                                           ),
-                                  ),
-                                  title: Text(
-                                    _getFileName(file.path),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const SizedBox(height: 4),
-                                      Text(_getFileSize(file)),
-                                      Text(
-                                        _getFileDate(file),
-                                        style: TextStyle(
-                                          fontSize: 11,
+                                          child: Image.file(
+                                            File(file.path),
+                                            fit: BoxFit.cover,
+                                          ),
+                                        )
+                                      : Icon(
+                                          Icons.videocam,
+                                          size: 32,
                                           color: Colors.grey[600],
                                         ),
-                                      ),
-                                    ],
+                                ),
+                                title: Text(
+                                  _getFileName(file.path),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
                                   ),
-                                  trailing: PopupMenuButton(
-                                    icon: const Icon(Icons.more_vert),
-                                    itemBuilder: (context) => [
-                                      const PopupMenuItem(
-                                        value: 'share',
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.share, size: 20),
-                                            SizedBox(width: 8),
-                                            Text('Paylaş'),
-                                          ],
-                                        ),
+                                ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 4),
+                                    Text(_getFileSize(file)),
+                                    Text(
+                                      _getFileDate(file),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey[600],
                                       ),
-                                      const PopupMenuItem(
-                                        value: 'delete',
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.delete,
-                                              size: 20,
-                                              color: Colors.red,
-                                            ),
-                                            SizedBox(width: 8),
-                                            Text(
-                                              'Sil',
-                                              style: TextStyle(
-                                                color: Colors.red,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                    ),
+                                  ],
+                                ),
+                                trailing: PopupMenuButton(
+                                  icon: const Icon(Icons.more_vert),
+                                  itemBuilder: (context) => [
+                                    const PopupMenuItem(
+                                      value: 'share',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.share, size: 20),
+                                          SizedBox(width: 8),
+                                          Text('Paylaş'),
+                                        ],
                                       ),
-                                    ],
-                                    onSelected: (value) {
-                                      if (value == 'delete') {
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: const Text('Dosyayı Sil'),
-                                            content: const Text(
-                                              'Bu dosyayı silmek istediğinizden emin misiniz?',
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.delete,
+                                            size: 20,
+                                            color: Colors.red,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            'Sil',
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                  onSelected: (value) {
+                                    if (value == 'delete') {
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text('Dosyayı Sil'),
+                                          content: const Text(
+                                            'Bu dosyayı silmek istediğinizden emin misiniz?',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context),
+                                              child: const Text('İptal'),
                                             ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(context),
-                                                child: const Text('İptal'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () {
-                                                  Navigator.pop(context);
-                                                  _deleteFile(file);
-                                                },
-                                                child: const Text(
-                                                  'Sil',
-                                                  style: TextStyle(
-                                                    color: Colors.red,
-                                                  ),
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.pop(context);
+                                                _deleteFile(file);
+                                              },
+                                              child: const Text(
+                                                'Sil',
+                                                style: TextStyle(
+                                                  color: Colors.red,
                                                 ),
                                               ),
-                                            ],
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            FullScreenMediaPage(
-                                              filePath: file.path,
-                                              isVideo: !isImage,
                                             ),
-                                      ),
-                                    );
+                                          ],
+                                        ),
+                                      );
+                                    }
                                   },
                                 ),
-                              );
-                            },
-                          ),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => FullScreenMediaPage(
+                                        filePath: file.path,
+                                        isVideo: !isImage,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            );
+                          },
                         ),
-                ),
+                      ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

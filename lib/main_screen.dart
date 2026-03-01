@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:insta_downloader/homepage.dart';
+import 'package:insta_downloader/constants/app_colors.dart';
+import 'package:insta_downloader/pages/Home%20Page/homepage.dart';
 import 'package:insta_downloader/pages/browser_page.dart';
 import 'package:insta_downloader/pages/downloads_page.dart';
 
@@ -27,7 +28,7 @@ class _MainScreenState extends State<MainScreen> {
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withAlpha(50),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),
@@ -41,18 +42,18 @@ class _MainScreenState extends State<MainScreen> {
             });
           },
           type: BottomNavigationBarType.fixed,
-          selectedItemColor: const Color(0xFF833AB4),
+          selectedItemColor: AppColors.iconColor,
           unselectedItemColor: Colors.grey,
           selectedFontSize: 12,
           unselectedFontSize: 12,
           elevation: 0,
           backgroundColor: Colors.white,
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.web), label: 'Browser'),
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Ana Sayfa'),
+            BottomNavigationBarItem(icon: Icon(Icons.web), label: 'Tarayıcı'),
             BottomNavigationBarItem(
               icon: Icon(Icons.download_done),
-              label: 'Downloaded',
+              label: 'İndirilenler',
             ),
           ],
         ),

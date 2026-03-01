@@ -8,10 +8,10 @@ class FullScreenMediaPage extends StatefulWidget {
   final bool isVideo; // Video mu fotoğraf mı?
 
   const FullScreenMediaPage({
-    Key? key,
+    super.key,
     required this.filePath,
     required this.isVideo,
-  }) : super(key: key);
+  });
 
   @override
   State<FullScreenMediaPage> createState() => _FullScreenMediaPageState();
@@ -29,7 +29,6 @@ class _FullScreenMediaPageState extends State<FullScreenMediaPage> {
     }
   }
 
-  // Video oynatıcıyı kuran fonksiyon
   Future<void> _initializeVideoPlayer() async {
     _videoPlayerController = VideoPlayerController.file(File(widget.filePath));
     await _videoPlayerController!.initialize();
@@ -53,7 +52,6 @@ class _FullScreenMediaPageState extends State<FullScreenMediaPage> {
 
   @override
   void dispose() {
-    // Sayfa kapanırken hafızayı temizle (Çok önemli!)
     _videoPlayerController?.dispose();
     _chewieController?.dispose();
     super.dispose();
@@ -62,7 +60,7 @@ class _FullScreenMediaPageState extends State<FullScreenMediaPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black, // Arka plan tam ekran hissiyatı için siyah
+      backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.transparent, // AppBar şeffaf
         elevation: 0,
