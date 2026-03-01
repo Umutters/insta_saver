@@ -37,13 +37,8 @@ flutter run
 
 ## Ekran Görüntüsü
 
-> Yakında eklenecek.
+![WhatsApp Image 2026-03-02 at 01 14 35](https://github.com/user-attachments/assets/a0db8956-1ef3-4472-9c05-05482183e22e)
 
-<!-- İstersen şunu kullanabiliriz:
-<img src="PATH_OR_URL" alt="App Screenshot" width="250"/>
--->
-
----
 
 ## Kullanım
 
