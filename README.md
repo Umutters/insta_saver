@@ -48,6 +48,8 @@ flutter run
 2. Uygulamada ilgili alana yapıştırın.
 3. **İndir** butonuna basın.
 4. Medya cihazınıza kaydedilir.
+5. Tarayıcı Üzerinden Çıkan Kaydetme Butonuna basarak yine medyaları indirebilirsiniz.
+6. İndirenler sekmesi üzerinden indirilen medyalarınızı kontrol edebilirsiniz.
 
 ---
 
